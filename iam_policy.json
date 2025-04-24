@@ -47,7 +47,18 @@
                 "ec2:AssociateRouteTable",
                 "ec2:DisassociateRouteTable",
                 "ec2:CreateTags",
-                "ec2:DeleteTags"
+                "ec2:DeleteTags",
+                "ec2:ImportKeyPair",
+                "ec2:DescribeVpcAttribute",
+                "ec2:ModifySubnetAttribute",
+                "ec2:DescribeNetworkInterfaces",
+                "ec2:DescribeInstanceTypes",
+                "ec2:DescribeTags",
+                "ec2:DescribeInstanceAttribute",
+                "ec2:DescribeVolumes",
+                "ec2:DescribeInstanceCreditSpecifications"
+
+
             ],
             "Resource": "*"
         },
@@ -60,7 +71,19 @@
                 "s3:ListBucket",
                 "s3:PutBucketTagging",
                 "s3:GetBucketLocation",
-                "s3:GetBucketTagging"
+                "s3:GetBucketTagging",
+                "s3:GetBucketPolicy",
+                "s3:GetBucketAcl",
+                "s3:GetBucketCORS",
+                "s3:GetBucketWebsite",
+                "s3:GetBucketVersioning",
+                "s3:GetAccelerateConfiguration",
+                "s3:GetBucketRequestPayment",
+                "s3:GetBucketLogging",
+                "s3:GetLifecycleConfiguration",
+                "s3:GetReplicationConfiguration",
+                "s3:GetEncryptionConfiguration",
+                "s3:GetBucketObjectLockConfiguration"
             ],
             "Resource": "arn:aws:s3:::*"
         },
@@ -84,7 +107,13 @@
                 "iam:AddRoleToInstanceProfile",
                 "iam:RemoveRoleFromInstanceProfile",
                 "iam:ListInstanceProfilesForRole",
-                "iam:PassRole"
+                "iam:PassRole",
+                "iam:ListRolePolicies",
+                "iam:ListAttachedRolePolicies",
+                "iam:TagInstanceProfile",
+                "iam:TagPolicy",
+                "iam:GetPolicyVersion",
+                "iam:ListPolicyVersions"
             ],
             "Resource": "*"
         }

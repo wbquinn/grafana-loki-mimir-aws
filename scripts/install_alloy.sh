@@ -20,9 +20,9 @@ exec > >(tee /var/log/cloud-init-output.log|logger -t user-data -s 2>/dev/consol
 
 echo "--- Starting Alloy User Data Script ---"
 echo "Timestamp: $(date)"
-echo "Alloy Version to install: $ALLOY_VERSION"
-echo "Loki Private IP (Target): $LOKI_PRIVATE_IP"
-echo "Mimir Private IP (Target): $MIMIR_PRIVATE_IP"
+echo "Alloy Version to install: $$ALLOY_VERSION"
+echo "Loki Private IP (Target): $$LOKI_PRIVATE_IP"
+echo "Mimir Private IP (Target): $$MIMIR_PRIVATE_IP"
 
 # --- System Update and Dependencies ---
 echo "Updating system packages and installing dependencies..."
@@ -31,15 +31,15 @@ sudo dnf update -y
 sudo dnf install -y wget unzip tar gzip
 
 # --- Download and Install Alloy ---
-echo "Downloading Grafana Alloy version $ALLOY_VERSION..."
+echo "Downloading Grafana Alloy version $$ALLOY_VERSION..."
 cd /tmp # Work in the /tmp directory
-wget --quiet "https://github.com/grafana/alloy/releases/download/${ALLOY_VERSION}/${ALLOY_ZIP_FILENAME}" -O ${ALLOY_ZIP_FILENAME}
+wget --quiet "https://github.com/grafana/alloy/releases/download/$${ALLOY_VERSION}/$${ALLOY_ZIP_FILENAME}" -O $${ALLOY_ZIP_FILENAME}
 
 echo "Installing Alloy..."
-unzip -o ${ALLOY_ZIP_FILENAME} # -o overwrites existing files without prompting
-sudo mv ./${ALLOY_BINARY_NAME} /usr/local/bin/alloy # Move the binary to a standard location
+unzip -o $${ALLOY_ZIP_FILENAME} # -o overwrites existing files without prompting
+sudo mv ./$${ALLOY_BINARY_NAME} /usr/local/bin/alloy # Move the binary to a standard location
 sudo chmod +x /usr/local/bin/alloy # Make the binary executable
-rm -f ${ALLOY_ZIP_FILENAME} # Clean up the downloaded zip file
+rm -f $${ALLOY_ZIP_FILENAME} # Clean up the downloaded zip file
 echo "Alloy binary installed at $(which alloy)"
 alloy --version # Verify installation
 
@@ -93,7 +93,7 @@ otelcol.receiver.otlp "default" {
 loki.write "default" {
   // Define the Loki endpoint. Use the private IP provided by Terraform.
   endpoint {
-    url = "http://${LOKI_PRIVATE_IP}:3100/loki/api/v1/push" // Loki's push API endpoint
+    url = "http://$${LOKI_PRIVATE_IP}:3100/loki/api/v1/push" // Loki's push API endpoint
     // Add batching, retry, queue config if needed
   }
   // Optional: Add labels that will be attached to all logs sent by this component.
@@ -107,7 +107,7 @@ loki.write "default" {
 prometheus.remote_write "mimir" {
   // Define the Mimir remote write endpoint. Use the private IP provided by Terraform.
   endpoint {
-    url = "http://${MIMIR_PRIVATE_IP}:9009/api/v1/push" // Mimir's remote write endpoint
+    url = "http://$${MIMIR_PRIVATE_IP}:9009/api/v1/push" // Mimir's remote write endpoint
     // Add queue_config, metadata_config, http_client_config if needed
   }
 }

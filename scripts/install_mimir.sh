@@ -17,9 +17,9 @@ exec > >(tee /var/log/cloud-init-output.log|logger -t user-data -s 2>/dev/consol
 
 echo "--- Starting Mimir User Data Script ---"
 echo "Timestamp: $(date)"
-echo "Mimir Version to install: $MIMIR_VERSION"
-echo "Target S3 Bucket: $MIMIR_S3_BUCKET"
-echo "AWS Region: $AWS_REGION"
+echo "Mimir Version to install: $$MIMIR_VERSION"
+echo "Target S3 Bucket: $$MIMIR_S3_BUCKET"
+echo "AWS Region: $$AWS_REGION"
 
 # --- System Update and Dependencies ---
 echo "Updating system packages and installing dependencies..."
@@ -27,17 +27,17 @@ sudo dnf update -y
 sudo dnf install -y wget unzip tar gzip
 
 # --- Download and Install Mimir ---
-echo "Downloading Grafana Mimir version $MIMIR_VERSION..."
+echo "Downloading Grafana Mimir version $$MIMIR_VERSION..."
 cd /tmp
 # Mimir releases might be named slightly differently (e.g., just 'mimir'), adjust URL if needed.
-wget --quiet "https://github.com/grafana/mimir/releases/download/${MIMIR_VERSION}/${MIMIR_ZIP_FILENAME}" -O ${MIMIR_ZIP_FILENAME}
+wget --quiet "https://github.com/grafana/mimir/releases/download/$${MIMIR_VERSION}/$${MIMIR_ZIP_FILENAME}" -O $${MIMIR_ZIP_FILENAME}
 
 echo "Installing Mimir..."
-unzip -o ${MIMIR_ZIP_FILENAME}
+unzip -o $${MIMIR_ZIP_FILENAME}
 # The binary inside might just be 'mimir', check the release assets. Assuming standard name for now.
-sudo mv ./${MIMIR_BINARY_NAME} /usr/local/bin/mimir
+sudo mv ./$${MIMIR_BINARY_NAME} /usr/local/bin/mimir
 sudo chmod +x /usr/local/bin/mimir
-rm -f ${MIMIR_ZIP_FILENAME}
+rm -f $${MIMIR_ZIP_FILENAME}
 echo "Mimir binary installed at $(which mimir)"
 mimir --version # Verify installation
 
@@ -95,9 +95,9 @@ common:
   storage:
     backend: s3
     s3:
-      bucket_name: ${MIMIR_S3_BUCKET} # S3 bucket name from Terraform
-      region: ${AWS_REGION}         # AWS region from Terraform
-      # endpoint: s3.${AWS_REGION}.amazonaws.com # Usually not needed
+      bucket_name: $${MIMIR_S3_BUCKET} # S3 bucket name from Terraform
+      region: $${AWS_REGION}         # AWS region from Terraform
+      # endpoint: s3.$${AWS_REGION}.amazonaws.com # Usually not needed
       # sse_encryption: false # Enable SSE for production
       # access_key_id/secret_access_key handled by IAM role.
   # Replication factor for ingester data.

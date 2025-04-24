@@ -156,7 +156,7 @@ resource "aws_security_group" "loki" {
     protocol        = "tcp"
     security_groups = [aws_security_group.alloy.id] # Allow traffic only from instances in the Alloy SG
   }
-  # *** ADDED Ingress rule: Allow traffic from the Grafana security group to Loki's API port (3100). ***
+  # Ingress rule: Allow traffic from the Grafana security group to Loki's API port (3100).
   ingress {
     description     = "Loki API from Grafana"
     from_port       = 3100
@@ -189,7 +189,7 @@ resource "aws_security_group" "mimir" {
     protocol        = "tcp"
     security_groups = [aws_security_group.alloy.id] # Allow traffic only from instances in the Alloy SG
   }
-  # *** ADDED Ingress rule: Allow traffic from the Grafana security group to Mimir's API port (9009). ***
+  # Ingress rule: Allow traffic from the Grafana security group to Mimir's API port (9009).
   ingress {
     description     = "Mimir Query API from Grafana"
     from_port       = 9009
@@ -270,10 +270,10 @@ resource "aws_instance" "alloy" {
   subnet_id              = aws_subnet.grafana_subnet.id
   vpc_security_group_ids = [aws_security_group.ssh_access.id, aws_security_group.alloy.id]
   key_name               = aws_key_pair.generated_key.key_name
-  # Alloy itself doesn't need S3 access, so no IAM profile needed unless it writes directly.
-  # iam_instance_profile   = aws_iam_instance_profile.grafana_ec2_profile.name
+  # iam_instance_profile   = aws_iam_instance_profile.grafana_ec2_profile.name # Alloy doesn't directly need S3 access
 
   user_data = templatefile("${path.module}/scripts/install_alloy.sh", {
+    # Variables expected by the install_alloy.sh script
     alloy_version    = var.alloy_version
     alloy_zip_filename = local.alloy_zip_filename
     alloy_binary_name= local.alloy_binary_name
@@ -294,12 +294,14 @@ resource "aws_instance" "loki" {
   key_name               = aws_key_pair.generated_key.key_name
   iam_instance_profile   = aws_iam_instance_profile.grafana_ec2_profile.name # Needs S3 access
 
+  # *** CORRECTED: Ensure only necessary variables are passed to the templatefile function ***
   user_data = templatefile("${path.module}/scripts/install_loki.sh", {
+    # Variables expected by the install_loki.sh script
     loki_version       = var.loki_version
     loki_zip_filename  = local.loki_zip_filename
     loki_binary_name   = local.loki_binary_name
-    loki_s3_bucket     = aws_s3_bucket.loki_storage.bucket
-    aws_region         = var.aws_region
+    loki_s3_bucket     = aws_s3_bucket.loki_storage.bucket # Pass the actual S3 bucket name
+    aws_region         = var.aws_region                    # Pass the AWS region
   })
 
   tags = merge(local.common_tags, { Name = "${var.project_tag_value}-loki-instance" })
@@ -316,18 +318,19 @@ resource "aws_instance" "mimir" {
   iam_instance_profile   = aws_iam_instance_profile.grafana_ec2_profile.name # Needs S3 access
 
   user_data = templatefile("${path.module}/scripts/install_mimir.sh", {
+    # Variables expected by the install_mimir.sh script
     mimir_version      = var.mimir_version
     mimir_zip_filename = local.mimir_zip_filename
     mimir_binary_name  = local.mimir_binary_name
-    mimir_s3_bucket    = aws_s3_bucket.mimir_storage.bucket
-    aws_region         = var.aws_region
+    mimir_s3_bucket    = aws_s3_bucket.mimir_storage.bucket # Pass the actual S3 bucket name
+    aws_region         = var.aws_region                     # Pass the AWS region
   })
 
   tags = merge(local.common_tags, { Name = "${var.project_tag_value}-mimir-instance" })
   depends_on = [aws_key_pair.generated_key]
 }
 
-# *** ADDED: Create the EC2 instance for Grafana Server. ***
+# Create the EC2 instance for Grafana Server.
 resource "aws_instance" "grafana" {
   ami                    = data.aws_ami.amazon_linux_2023.id
   instance_type          = var.grafana_instance_type # Use Grafana instance type variable
@@ -337,7 +340,6 @@ resource "aws_instance" "grafana" {
   key_name               = aws_key_pair.generated_key.key_name
   # Grafana server itself doesn't need direct S3 access via IAM role unless using specific plugins/features.
 
-  # Render the Grafana user data script.
   user_data = templatefile("${path.module}/scripts/install_grafana.sh", {
     # Variables expected by the install_grafana.sh script
     grafana_version = var.grafana_version
@@ -346,4 +348,3 @@ resource "aws_instance" "grafana" {
   tags = merge(local.common_tags, { Name = "${var.project_tag_value}-grafana-instance" })
   depends_on = [aws_key_pair.generated_key]
 }
-

@@ -13,7 +13,7 @@ exec > >(tee /var/log/cloud-init-output.log|logger -t user-data -s 2>/dev/consol
 
 echo "--- Starting Grafana User Data Script ---"
 echo "Timestamp: $(date)"
-echo "Grafana Version to install: $GRAFANA_VERSION"
+echo "Grafana Version to install: $$GRAFANA_VERSION"
 
 # --- System Update ---
 echo "Updating system packages..."
@@ -40,17 +40,17 @@ EOF
 
 # --- Install Grafana ---
 # Determine package name based on version variable
-if [[ "$GRAFANA_VERSION" == "latest" ]]; then
+if [[ "$$GRAFANA_VERSION" == "latest" ]]; then
   GRAFANA_PACKAGE="grafana"
   echo "Installing latest Grafana OSS..."
 else
   # Append the version and release (usually '-1') for specific version install
-  GRAFANA_PACKAGE="grafana-${GRAFANA_VERSION}-1"
-   echo "Installing Grafana OSS version ${GRAFANA_VERSION}..."
+  GRAFANA_PACKAGE="grafana-$${GRAFANA_VERSION}-1"
+   echo "Installing Grafana OSS version $${GRAFANA_VERSION}..."
 fi
 
 # Install the specified Grafana package
-sudo dnf install -y "$GRAFANA_PACKAGE"
+sudo dnf install -y "$$GRAFANA_PACKAGE"
 
 # --- Start and Enable Grafana Service ---
 echo "Reloading systemd daemon, enabling and starting Grafana service..."
