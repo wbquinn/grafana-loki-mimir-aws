@@ -72,7 +72,6 @@ resource "aws_security_group" "ssh_access" {
   description = "Allow SSH access from specified CIDRs"
   vpc_id      = aws_vpc.grafana_vpc.id
 
-  # Ingress rule: Allow TCP traffic on port 22 (SSH) from the allowed CIDR blocks.
   ingress {
     description = "SSH access"
     from_port   = 22
@@ -80,7 +79,6 @@ resource "aws_security_group" "ssh_access" {
     protocol    = "tcp"
     cidr_blocks = var.allowed_ssh_cidr # Use the variable for allowed IPs
   }
-  # Egress rule: Allow all outbound traffic.
   egress {
     from_port   = 0
     to_port     = 0
@@ -93,10 +91,9 @@ resource "aws_security_group" "ssh_access" {
 # Security group for the Alloy instance.
 resource "aws_security_group" "alloy" {
   name        = "${var.project_tag_value}-alloy-sg"
-  description = "Allow OTLP traffic to Alloy from specified CIDRs and internal traffic"
+  description = "Allow OTLP traffic to Alloy from specified CIDRs"
   vpc_id      = aws_vpc.grafana_vpc.id
 
-  # Ingress rule: Allow OTLP/gRPC traffic (port 4317) from allowed Faro CIDRs.
   ingress {
     description = "OTLP/gRPC from Faro"
     from_port   = 4317
@@ -104,7 +101,6 @@ resource "aws_security_group" "alloy" {
     protocol    = "tcp"
     cidr_blocks = var.allowed_faro_cidr # Use the variable for allowed IPs
   }
-  # Ingress rule: Allow OTLP/HTTP traffic (port 4318) from allowed Faro CIDRs.
   ingress {
     description = "OTLP/HTTP from Faro"
     from_port   = 4318
@@ -112,20 +108,44 @@ resource "aws_security_group" "alloy" {
     protocol    = "tcp"
     cidr_blocks = var.allowed_faro_cidr # Use the variable for allowed IPs
   }
-  # Egress rule: Allow all outbound traffic (to Loki, Mimir, internet for downloads).
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"] # Allow outbound to Loki, Mimir, internet for downloads
+  }
+  tags = merge(local.common_tags, { Name = "${var.project_tag_value}-alloy-sg" }) # Apply tags
+}
+
+# Security group for the Grafana instance.
+resource "aws_security_group" "grafana" {
+  name        = "${var.project_tag_value}-grafana-sg"
+  description = "Allow HTTP access to Grafana UI and outbound traffic"
+  vpc_id      = aws_vpc.grafana_vpc.id
+
+  # Ingress rule: Allow access to Grafana UI (port 3000) from specified CIDRs.
+  ingress {
+    description = "Grafana UI access"
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_grafana_cidr # Use variable for allowed Grafana access IPs
+  }
+  # Egress rule: Allow all outbound traffic (to query Loki/Mimir, internet for plugins/updates).
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  tags = merge(local.common_tags, { Name = "${var.project_tag_value}-alloy-sg" }) # Apply tags
+  tags = merge(local.common_tags, { Name = "${var.project_tag_value}-grafana-sg" }) # Apply tags
 }
+
 
 # Security group for the Loki instance.
 resource "aws_security_group" "loki" {
   name        = "${var.project_tag_value}-loki-sg"
-  description = "Allow traffic to Loki API from Alloy and potentially Grafana"
+  description = "Allow traffic to Loki API from Alloy and Grafana"
   vpc_id      = aws_vpc.grafana_vpc.id
 
   # Ingress rule: Allow traffic from the Alloy security group to Loki's API port (3100).
@@ -136,14 +156,14 @@ resource "aws_security_group" "loki" {
     protocol        = "tcp"
     security_groups = [aws_security_group.alloy.id] # Allow traffic only from instances in the Alloy SG
   }
-  # TODO: Add ingress rule here if Grafana is deployed separately and needs to query Loki.
-  # ingress {
-  #   description     = "Loki API from Grafana"
-  #   from_port       = 3100
-  #   to_port         = 3100
-  #   protocol        = "tcp"
-  #   security_groups = [aws_security_group.grafana.id] # Replace with your Grafana SG ID
-  # }
+  # *** ADDED Ingress rule: Allow traffic from the Grafana security group to Loki's API port (3100). ***
+  ingress {
+    description     = "Loki API from Grafana"
+    from_port       = 3100
+    to_port         = 3100
+    protocol        = "tcp"
+    security_groups = [aws_security_group.grafana.id] # Allow traffic from instances in the Grafana SG
+  }
 
   # Egress rule: Allow all outbound traffic (to S3, internet for downloads).
   egress {
@@ -158,7 +178,7 @@ resource "aws_security_group" "loki" {
 # Security group for the Mimir instance.
 resource "aws_security_group" "mimir" {
   name        = "${var.project_tag_value}-mimir-sg"
-  description = "Allow traffic to Mimir API from Alloy and potentially Grafana"
+  description = "Allow traffic to Mimir API from Alloy and Grafana"
   vpc_id      = aws_vpc.grafana_vpc.id
 
   # Ingress rule: Allow traffic from the Alloy security group to Mimir's API port (9009).
@@ -169,14 +189,14 @@ resource "aws_security_group" "mimir" {
     protocol        = "tcp"
     security_groups = [aws_security_group.alloy.id] # Allow traffic only from instances in the Alloy SG
   }
-  # TODO: Add ingress rule here if Grafana is deployed separately and needs to query Mimir.
-  # ingress {
-  #   description     = "Mimir API from Grafana"
-  #   from_port       = 9009
-  #   to_port         = 9009
-  #   protocol        = "tcp"
-  #   security_groups = [aws_security_group.grafana.id] # Replace with your Grafana SG ID
-  # }
+  # *** ADDED Ingress rule: Allow traffic from the Grafana security group to Mimir's API port (9009). ***
+  ingress {
+    description     = "Mimir Query API from Grafana"
+    from_port       = 9009
+    to_port         = 9009
+    protocol        = "tcp"
+    security_groups = [aws_security_group.grafana.id] # Allow traffic from instances in the Grafana SG
+  }
 
   # Egress rule: Allow all outbound traffic (to S3, internet for downloads).
   egress {
@@ -190,159 +210,140 @@ resource "aws_security_group" "mimir" {
 
 # --- IAM ---
 
-# Create an IAM role that EC2 instances can assume.
+# Create an IAM role that EC2 instances (Loki/Mimir) can assume for S3 access.
 resource "aws_iam_role" "grafana_ec2_role" {
-  # Construct a unique role name including the region
   name = "${var.project_tag_value}-ec2-s3-role-${data.aws_region.current.name}"
-  # Define the trust policy allowing the EC2 service to assume this role.
   assume_role_policy = jsonencode({
     Version   = "2012-10-17",
     Statement = [
       {
         Action    = "sts:AssumeRole",
         Effect    = "Allow",
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
+        Principal = { Service = "ec2.amazonaws.com" }
       }
     ]
   })
-  tags = local.common_tags # Apply common tags
+  tags = local.common_tags
 }
 
-# Create an IAM policy granting necessary S3 permissions based on the policy document.
+# Create an IAM policy granting necessary S3 permissions.
 resource "aws_iam_policy" "grafana_s3_policy" {
-  # Construct a unique policy name including the region
   name        = "${var.project_tag_value}-loki-mimir-s3-policy-${data.aws_region.current.name}"
   description = "Policy granting S3 access for Loki and Mimir EC2 instances"
-  policy      = data.aws_iam_policy_document.grafana_s3_policy_doc.json # Reference the policy document defined in data.tf
-  tags        = local.common_tags # Apply common tags
+  policy      = data.aws_iam_policy_document.grafana_s3_policy_doc.json
+  tags        = local.common_tags
 }
 
-# Attach the created S3 policy to the created EC2 role.
+# Attach the S3 policy to the EC2 role.
 resource "aws_iam_role_policy_attachment" "attach_s3_policy" {
   role       = aws_iam_role.grafana_ec2_role.name
   policy_arn = aws_iam_policy.grafana_s3_policy.arn
 }
 
-# Create an EC2 instance profile, which acts as a container for the IAM role.
+# Create an EC2 instance profile for the S3 access role.
 resource "aws_iam_instance_profile" "grafana_ec2_profile" {
-  # Construct a unique instance profile name including the region
   name = "${var.project_tag_value}-ec2-s3-profile-${data.aws_region.current.name}"
-  role = aws_iam_role.grafana_ec2_role.name # Associate the role with this profile
-  tags = local.common_tags # Apply common tags
+  role = aws_iam_role.grafana_ec2_role.name
+  tags = local.common_tags
 }
 
 # --- Storage (S3 Buckets) ---
 
 # Create the S3 bucket for Loki storage.
 resource "aws_s3_bucket" "loki_storage" {
-  bucket = var.loki_s3_bucket_name # Use the variable for the bucket name (must be globally unique)
-  tags   = merge(local.common_tags, { Name = "${var.project_tag_value}-loki-storage" }) # Apply tags
-
-  # Recommended for production: Enable versioning and server-side encryption.
-  # versioning {
-  #   enabled = true
-  # }
-  # server_side_encryption_configuration {
-  #   rule {
-  #     apply_server_side_encryption_by_default {
-  #       sse_algorithm = "AES256"
-  #     }
-  #   }
-  # }
-  # lifecycle_rule { ... } # Add lifecycle rules for object expiration/transition
+  bucket = var.loki_s3_bucket_name
+  tags   = merge(local.common_tags, { Name = "${var.project_tag_value}-loki-storage" })
 }
 
 # Create the S3 bucket for Mimir storage.
 resource "aws_s3_bucket" "mimir_storage" {
-  bucket = var.mimir_s3_bucket_name # Use the variable for the bucket name (must be globally unique)
-  tags   = merge(local.common_tags, { Name = "${var.project_tag_value}-mimir-storage" }) # Apply tags
-
-  # Recommended for production: Enable versioning and server-side encryption.
-  # versioning { ... }
-  # server_side_encryption_configuration { ... }
-  # lifecycle_rule { ... }
+  bucket = var.mimir_s3_bucket_name
+  tags   = merge(local.common_tags, { Name = "${var.project_tag_value}-mimir-storage" })
 }
 
 # --- Compute Instances ---
 
 # Create the EC2 instance for Grafana Alloy.
 resource "aws_instance" "alloy" {
-  ami                    = data.aws_ami.amazon_linux_2023.id # Use the dynamically found latest AL2023 AMI ID
-  instance_type          = var.alloy_instance_type          # Use the instance type variable
-  subnet_id              = aws_subnet.grafana_subnet.id     # Launch in the created public subnet
-  vpc_security_group_ids = [aws_security_group.ssh_access.id, aws_security_group.alloy.id] # Attach SSH and Alloy SGs
-  key_name               = aws_key_pair.generated_key.key_name # Use the generated EC2 key pair
-  iam_instance_profile   = aws_iam_instance_profile.grafana_ec2_profile.name # Attach the IAM profile (though Alloy doesn't directly use S3 here, Loki/Mimir do)
+  ami                    = data.aws_ami.amazon_linux_2023.id
+  instance_type          = var.alloy_instance_type
+  subnet_id              = aws_subnet.grafana_subnet.id
+  vpc_security_group_ids = [aws_security_group.ssh_access.id, aws_security_group.alloy.id]
+  key_name               = aws_key_pair.generated_key.key_name
+  # Alloy itself doesn't need S3 access, so no IAM profile needed unless it writes directly.
+  # iam_instance_profile   = aws_iam_instance_profile.grafana_ec2_profile.name
 
-  # Use the templatefile function to render the user data script, passing variables.
   user_data = templatefile("${path.module}/scripts/install_alloy.sh", {
-    # Variables expected by the install_alloy.sh script
     alloy_version    = var.alloy_version
     alloy_zip_filename = local.alloy_zip_filename
     alloy_binary_name= local.alloy_binary_name
-    loki_private_ip  = aws_instance.loki.private_ip   # Pass Loki's private IP
-    mimir_private_ip = aws_instance.mimir.private_ip  # Pass Mimir's private IP
+    loki_private_ip  = aws_instance.loki.private_ip
+    mimir_private_ip = aws_instance.mimir.private_ip
   })
 
-  # Apply common tags and a specific Name tag.
   tags = merge(local.common_tags, { Name = "${var.project_tag_value}-alloy-instance" })
-
-  # Explicitly depend on the Loki and Mimir instances being created first,
-  # as their private IPs are needed for the Alloy user data script.
-  # Also depends on the key pair being created.
   depends_on = [aws_instance.loki, aws_instance.mimir, aws_key_pair.generated_key]
 }
 
 # Create the EC2 instance for Grafana Loki.
 resource "aws_instance" "loki" {
-  ami                    = data.aws_ami.amazon_linux_2023.id # Use dynamic AMI
-  instance_type          = var.loki_instance_type           # Use variable
-  subnet_id              = aws_subnet.grafana_subnet.id     # Launch in public subnet
-  vpc_security_group_ids = [aws_security_group.ssh_access.id, aws_security_group.loki.id] # Attach SSH and Loki SGs
-  key_name               = aws_key_pair.generated_key.key_name # Use generated key
-  iam_instance_profile   = aws_iam_instance_profile.grafana_ec2_profile.name # Attach IAM profile for S3 access
+  ami                    = data.aws_ami.amazon_linux_2023.id
+  instance_type          = var.loki_instance_type
+  subnet_id              = aws_subnet.grafana_subnet.id
+  vpc_security_group_ids = [aws_security_group.ssh_access.id, aws_security_group.loki.id]
+  key_name               = aws_key_pair.generated_key.key_name
+  iam_instance_profile   = aws_iam_instance_profile.grafana_ec2_profile.name # Needs S3 access
 
-  # Render the Loki user data script.
   user_data = templatefile("${path.module}/scripts/install_loki.sh", {
-    # Variables expected by the install_loki.sh script
     loki_version       = var.loki_version
     loki_zip_filename  = local.loki_zip_filename
     loki_binary_name   = local.loki_binary_name
-    loki_s3_bucket     = aws_s3_bucket.loki_storage.bucket # Pass the actual S3 bucket name
-    aws_region         = var.aws_region                    # Pass the AWS region
+    loki_s3_bucket     = aws_s3_bucket.loki_storage.bucket
+    aws_region         = var.aws_region
   })
 
-  # Apply tags.
   tags = merge(local.common_tags, { Name = "${var.project_tag_value}-loki-instance" })
-
-  # Depends on the key pair being created.
   depends_on = [aws_key_pair.generated_key]
 }
 
 # Create the EC2 instance for Grafana Mimir.
 resource "aws_instance" "mimir" {
-  ami                    = data.aws_ami.amazon_linux_2023.id # Use dynamic AMI
-  instance_type          = var.mimir_instance_type          # Use variable
-  subnet_id              = aws_subnet.grafana_subnet.id     # Launch in public subnet
-  vpc_security_group_ids = [aws_security_group.ssh_access.id, aws_security_group.mimir.id] # Attach SSH and Mimir SGs
-  key_name               = aws_key_pair.generated_key.key_name # Use generated key
-  iam_instance_profile   = aws_iam_instance_profile.grafana_ec2_profile.name # Attach IAM profile for S3 access
+  ami                    = data.aws_ami.amazon_linux_2023.id
+  instance_type          = var.mimir_instance_type
+  subnet_id              = aws_subnet.grafana_subnet.id
+  vpc_security_group_ids = [aws_security_group.ssh_access.id, aws_security_group.mimir.id]
+  key_name               = aws_key_pair.generated_key.key_name
+  iam_instance_profile   = aws_iam_instance_profile.grafana_ec2_profile.name # Needs S3 access
 
-  # Render the Mimir user data script.
   user_data = templatefile("${path.module}/scripts/install_mimir.sh", {
-    # Variables expected by the install_mimir.sh script
     mimir_version      = var.mimir_version
     mimir_zip_filename = local.mimir_zip_filename
     mimir_binary_name  = local.mimir_binary_name
-    mimir_s3_bucket    = aws_s3_bucket.mimir_storage.bucket # Pass the actual S3 bucket name
-    aws_region         = var.aws_region                     # Pass the AWS region
+    mimir_s3_bucket    = aws_s3_bucket.mimir_storage.bucket
+    aws_region         = var.aws_region
   })
 
-  # Apply tags.
   tags = merge(local.common_tags, { Name = "${var.project_tag_value}-mimir-instance" })
-
-  # Depends on the key pair being created.
   depends_on = [aws_key_pair.generated_key]
 }
+
+# *** ADDED: Create the EC2 instance for Grafana Server. ***
+resource "aws_instance" "grafana" {
+  ami                    = data.aws_ami.amazon_linux_2023.id
+  instance_type          = var.grafana_instance_type # Use Grafana instance type variable
+  subnet_id              = aws_subnet.grafana_subnet.id
+  # Attach SSH access SG and the new Grafana SG
+  vpc_security_group_ids = [aws_security_group.ssh_access.id, aws_security_group.grafana.id]
+  key_name               = aws_key_pair.generated_key.key_name
+  # Grafana server itself doesn't need direct S3 access via IAM role unless using specific plugins/features.
+
+  # Render the Grafana user data script.
+  user_data = templatefile("${path.module}/scripts/install_grafana.sh", {
+    # Variables expected by the install_grafana.sh script
+    grafana_version = var.grafana_version
+  })
+
+  tags = merge(local.common_tags, { Name = "${var.project_tag_value}-grafana-instance" })
+  depends_on = [aws_key_pair.generated_key]
+}
+

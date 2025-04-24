@@ -6,9 +6,12 @@ Simple single-instance setup for grafana loki and mimir on aws
 
 1. Install Terraform.
 
-2. Configure your AWS Credentials (e.g., using environment variables, shared credential file, or IAM role). Ensure the credentials have the permissions outlined in the "Terraform Execution IAM Policy" document.
+2. Configure your [AWS Credentials](https://registry.terraform.io/providers/hashicorp/aws/latest/docs#authentication-and-configuration) (e.g., using environment variables, shared credential file, or IAM role). Ensure the credentials have the permissions outlined in the "Terraform Execution IAM Policy" document.
 
-3. Create a file named terraform.tfvars.You MUST define unique S3 bucket names in this file.Optionally override other variables like allowed_ssh_cidr.
+3. Create a file named terraform.tfvars.You MUST define unique S3 bucket names in this file.
+    - Define unique S3 bucket names.
+    - Restrict allowed_ssh_cidr and allowed_grafana_cidr to your IP address/range.
+    - Optionally override other variables.
 
    Example terraform.tfvars:
 
@@ -17,15 +20,17 @@ Simple single-instance setup for grafana loki and mimir on aws
 loki_s3_bucket_name  = "your-unique-loki-bucket-name-12345"
 mimir_s3_bucket_name = "your-unique-mimir-bucket-name-67890"
 
-# RECOMMENDED: Restrict SSH access to your IP
-allowed_ssh_cidr = ["YOUR_PUBLIC_IP/32"] # Replace YOUR_PUBLIC_IP
+# RECOMMENDED: Restrict access
+allowed_ssh_cidr     = ["YOUR_PUBLIC_IP/32"] # Replace YOUR_PUBLIC_IP
+allowed_grafana_cidr = ["YOUR_PUBLIC_IP/32"] # Replace YOUR_PUBLIC_IP
 
 # Optional: Restrict Faro access if possible
 # allowed_faro_cidr = ["YOUR_APP_SERVER_IP/32", "YOUR_CDN_IP_RANGE"]
 
 # Optional: Override other defaults if needed
-# aws_region = "eu-central-1"
-# alloy_instance_type = "t3.large"
+# grafana_version = "10.3.3"
+# grafana_instance_type = "t3.small"
+
 ```
 
 ### Use Terraform
@@ -49,7 +54,25 @@ ssh -i grafana_stack_key.pem ec2-user@<INSTANCE_PUBLIC_IP>
 
 9. Configure Faro: Use the `alloy_otlp_http_endpoint_base` or `alloy_otlp_grpc_endpoint` output to configure your Grafana Faro agent in your web application.
 
-10. Configure Grafana Data Sources: If you have a separate Grafana instance (within the same VPC or peered), use the `loki_internal_endpoint` and `mimir_internal_endpoint outputs` to configure Loki and Prometheus data sources respectively. You might need to adjust security groups to allow traffic from your Grafana instance to Loki/Mimir.
+10. Access Grafana:
+
+- Open the grafana_public_url in your browser.
+- Log in with username admin and password admin.
+  - You will be prompted to change the password.
+- Configure Data Sources in Grafana:
+  - Navigate to Configuration -> Data Sources.
+  - Add Loki Data Source:
+    - Select "Loki".
+    - Name: Loki (or as desired)
+    - URL: Use the loki_internal_endpoint output value (e.g., http://10.0.1.x:3100). Since Grafana is in the same VPC, it can reach Loki via its private IP.
+      - Leave Auth settings as default (unless you enable auth in Loki later).
+    - Click "Save & Test".
+  - Add Prometheus Data Source (for Mimir):
+    - Select "Prometheus".
+    - Name: Mimir (or as desired)
+    - URL: Use the mimir_internal_endpoint output value (e.g., http://10.0.1.y:9009).
+      - Leave Auth settings as default.
+    - Click "Save & Test".
 
 ### Removal
 11. Cleanup: When you no longer need the resources, destroy them:`terraform destroy`

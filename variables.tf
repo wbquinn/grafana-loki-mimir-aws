@@ -19,7 +19,6 @@ variable "allowed_ssh_cidr" {
   type        = list(string)
   default     = ["0.0.0.0/0"] # WARNING: For security, restrict this to your specific IP address range.
   validation {
-    # Basic validation to check if the input strings look like CIDR blocks
     condition     = alltrue([for cidr in var.allowed_ssh_cidr : can(cidrhost(cidr, 0))])
     error_message = "Each item in allowed_ssh_cidr must be a valid CIDR block (e.g., \"1.2.3.4/32\")."
   }
@@ -30,9 +29,18 @@ variable "allowed_faro_cidr" {
   type        = list(string)
   default     = ["0.0.0.0/0"] # WARNING: For security, restrict this to your application server/CDN IP ranges.
   validation {
-    # Basic validation to check if the input strings look like CIDR blocks
     condition     = alltrue([for cidr in var.allowed_faro_cidr : can(cidrhost(cidr, 0))])
     error_message = "Each item in allowed_faro_cidr must be a valid CIDR block."
+  }
+}
+
+variable "allowed_grafana_cidr" {
+  description = "List of CIDR blocks allowed access to the Grafana UI (port 3000)."
+  type        = list(string)
+  default     = ["0.0.0.0/0"] # WARNING: For security, restrict this to your specific IP address range.
+  validation {
+    condition     = alltrue([for cidr in var.allowed_grafana_cidr : can(cidrhost(cidr, 0))])
+    error_message = "Each item in allowed_grafana_cidr must be a valid CIDR block."
   }
 }
 
@@ -41,9 +49,7 @@ variable "allowed_faro_cidr" {
 variable "loki_s3_bucket_name" {
   description = "Globally unique name for the Loki S3 storage bucket. MUST be provided."
   type        = string
-  # No default - user must provide a unique name, e.g., in terraform.tfvars
   validation {
-    # Basic validation for S3 bucket naming rules (simplified)
     condition     = can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.loki_s3_bucket_name)) && !can(regex("(\\d{1,3}\\.){3}\\d{1,3}", var.loki_s3_bucket_name))
     error_message = "Loki S3 bucket name must be globally unique, 3-63 characters long, contain only lowercase letters, numbers, dots (.), and hyphens (-), start/end with a letter or number, and not be formatted as an IP address."
   }
@@ -52,9 +58,7 @@ variable "loki_s3_bucket_name" {
 variable "mimir_s3_bucket_name" {
   description = "Globally unique name for the Mimir S3 storage bucket. MUST be provided."
   type        = string
-  # No default - user must provide a unique name, e.g., in terraform.tfvars
    validation {
-    # Basic validation for S3 bucket naming rules (simplified)
     condition     = can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.mimir_s3_bucket_name)) && !can(regex("(\\d{1,3}\\.){3}\\d{1,3}", var.mimir_s3_bucket_name))
     error_message = "Mimir S3 bucket name must be globally unique, 3-63 characters long, contain only lowercase letters, numbers, dots (.), and hyphens (-), start/end with a letter or number, and not be formatted as an IP address."
   }
@@ -78,6 +82,12 @@ variable "mimir_instance_type" {
   description = "EC2 instance type for the Grafana Mimir instance."
   type        = string
   default     = "t3.large" # Mimir often benefits from more memory/CPU
+}
+
+variable "grafana_instance_type" {
+  description = "EC2 instance type for the Grafana server instance."
+  type        = string
+  default     = "t3.medium" # t3.small might be sufficient for light use
 }
 
 variable "ssh_key_name_prefix" {
@@ -110,4 +120,10 @@ variable "mimir_version" {
   description = "Grafana Mimir version tag to install (e.g., 'mimir-2.11.1'). Check GitHub releases."
   type        = string
   default     = "mimir-2.11.1" # Update to the desired latest stable version
+}
+
+variable "grafana_version" {
+  description = "Grafana OSS version to install (e.g., '10.4.2'). Use 'latest' for the newest release. Check Grafana website for versions."
+  type        = string
+  default     = "10.4.2" # Specify a version or use 'latest'
 }

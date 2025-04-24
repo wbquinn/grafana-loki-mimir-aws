@@ -7,9 +7,8 @@ output "generated_private_key_filename" {
 
 output "ssh_command_alloy" {
   description = "Example SSH command to connect to the Alloy instance using the generated key."
-  # Use the local filename and the public IP of the Alloy instance. Assumes 'ec2-user' for Amazon Linux.
   value       = "ssh -i ${local_file.private_key_pem.filename} ec2-user@${aws_instance.alloy.public_ip}"
-  sensitive   = true # Mark as sensitive to prevent showing the command with the key filename in plain logs.
+  sensitive   = true
 }
 
 output "ssh_command_loki" {
@@ -24,6 +23,12 @@ output "ssh_command_mimir" {
   sensitive   = true
 }
 
+output "ssh_command_grafana" {
+  description = "Example SSH command to connect to the Grafana instance using the generated key."
+  value       = "ssh -i ${local_file.private_key_pem.filename} ec2-user@${aws_instance.grafana.public_ip}"
+  sensitive   = true
+}
+
 output "alloy_public_ip" {
   description = "Public IP address of the Grafana Alloy instance. Use this for Faro configuration."
   value       = aws_instance.alloy.public_ip
@@ -31,7 +36,6 @@ output "alloy_public_ip" {
 
 output "alloy_otlp_grpc_endpoint" {
   description = "Alloy OTLP gRPC endpoint URL for Faro (use with gRPC transport config in Faro)."
-  # Note: Faro often expects http/https prefix even for gRPC transport config.
   value       = "http://${aws_instance.alloy.public_ip}:4317"
 }
 
@@ -40,13 +44,18 @@ output "alloy_otlp_http_endpoint_base" {
   value       = "http://${aws_instance.alloy.public_ip}:4318"
 }
 
+output "grafana_public_url" {
+  description = "URL to access the Grafana UI. Default login: admin / admin (change on first login)."
+  value       = "http://${aws_instance.grafana.public_ip}:3000"
+}
+
 output "loki_internal_endpoint" {
-  description = "Internal HTTP endpoint for Loki (use this URL for the Loki data source in Grafana if Grafana is within the same VPC)."
+  description = "Internal HTTP endpoint for Loki (use this URL for the Loki data source in Grafana)."
   value       = "http://${aws_instance.loki.private_ip}:3100"
 }
 
 output "mimir_internal_endpoint" {
-  description = "Internal HTTP endpoint for Mimir (use this URL for the Prometheus data source pointing to Mimir in Grafana if Grafana is within the same VPC)."
+  description = "Internal HTTP endpoint for Mimir (use this URL for the Prometheus data source pointing to Mimir in Grafana)."
   value       = "http://${aws_instance.mimir.private_ip}:9009"
 }
 
